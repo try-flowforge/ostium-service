@@ -463,17 +463,19 @@ class OstiumAdapter:
             if trader_address:
                 result = await asyncio.to_thread(
                     sdk.ostium.close_trade,
-                    trade_index,
-                    float(market_price),
-                    pair_id,
-                    trader_address,
+                    pair_id=pair_id,
+                    trade_index=trade_index,
+                    market_price=float(market_price),
+                    close_percentage=100,
+                    trader_address=trader_address,
                 )
             else:
                 result = await asyncio.to_thread(
                     sdk.ostium.close_trade,
-                    trade_index,
-                    float(market_price),
-                    pair_id,
+                    pair_id=pair_id,
+                    trade_index=trade_index,
+                    market_price=float(market_price),
+                    close_percentage=100,
                 )
         except Exception as exc:
             raise self._normalize_sdk_error(
