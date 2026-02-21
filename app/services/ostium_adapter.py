@@ -199,6 +199,70 @@ class OstiumAdapter:
             return cls._to_json_safe(vars(value))
         return str(value)
 
+    def _normalize_sdk_error(
+        self,
+        operation: str,
+        default_code: str,
+        default_message: str,
+        exc: Exception,
+    ) -> OstiumServiceError:
+        raw_error = str(exc)
+        lower_error = raw_error.lower()
+        details = {"error": raw_error, "operation": operation}
+
+        if "sufficient allowance" in lower_error or "allowance for" in lower_error:
+            return OstiumServiceError(
+                code="ALLOWANCE_MISSING",
+                message="Sufficient allowance not present. Approve the trading contract to spend USDC.",
+                status_code=400,
+                retryable=False,
+                details=details,
+            )
+
+        if "delegation is not active" in lower_error or "delegation not active" in lower_error:
+            return OstiumServiceError(
+                code="DELEGATION_NOT_ACTIVE",
+                message="Delegation is not active. Approve delegation before write actions.",
+                status_code=400,
+                retryable=False,
+                details=details,
+            )
+
+        if "safe wallet not found" in lower_error:
+            return OstiumServiceError(
+                code="SAFE_WALLET_MISSING",
+                message="Safe wallet not found for selected network.",
+                status_code=400,
+                retryable=False,
+                details=details,
+            )
+
+        if "delegate wallet gas is low" in lower_error or "insufficient funds for gas" in lower_error:
+            return OstiumServiceError(
+                code="DELEGATE_GAS_LOW",
+                message="Delegate wallet gas is low. Fund delegate wallet with ETH.",
+                status_code=400,
+                retryable=False,
+                details=details,
+            )
+
+        if "timeout" in lower_error or "timed out" in lower_error:
+            return OstiumServiceError(
+                code="OSTIUM_SERVICE_TIMEOUT",
+                message="Ostium service timed out.",
+                status_code=504,
+                retryable=True,
+                details=details,
+            )
+
+        return OstiumServiceError(
+            code=default_code,
+            message=default_message,
+            status_code=502,
+            retryable=True,
+            details=details,
+        )
+
     async def list_markets(self, network: str) -> dict[str, Any]:
         pairs = await self._fetch_pairs(network)
         markets: list[dict[str, Any]] = []
@@ -347,12 +411,11 @@ class OstiumAdapter:
                 at_price,
             )
         except Exception as exc:
-            raise OstiumServiceError(
-                code="OPEN_POSITION_FAILED",
-                message="Failed to open position on Ostium",
-                status_code=502,
-                retryable=True,
-                details={"error": str(exc)},
+            raise self._normalize_sdk_error(
+                operation="open_position",
+                default_code="OPEN_POSITION_FAILED",
+                default_message="Failed to open position on Ostium",
+                exc=exc,
             ) from exc
 
         response = {
@@ -413,12 +476,11 @@ class OstiumAdapter:
                     pair_id,
                 )
         except Exception as exc:
-            raise OstiumServiceError(
-                code="CLOSE_POSITION_FAILED",
-                message="Failed to close position on Ostium",
-                status_code=502,
-                retryable=True,
-                details={"error": str(exc)},
+            raise self._normalize_sdk_error(
+                operation="close_position",
+                default_code="CLOSE_POSITION_FAILED",
+                default_message="Failed to close position on Ostium",
+                exc=exc,
             ) from exc
 
         response = {
@@ -458,12 +520,11 @@ class OstiumAdapter:
                     sl_price,
                 )
         except Exception as exc:
-            raise OstiumServiceError(
-                code="UPDATE_SL_FAILED",
-                message="Failed to update stop-loss on Ostium",
-                status_code=502,
-                retryable=True,
-                details={"error": str(exc)},
+            raise self._normalize_sdk_error(
+                operation="update_sl",
+                default_code="UPDATE_SL_FAILED",
+                default_message="Failed to update stop-loss on Ostium",
+                exc=exc,
             ) from exc
 
         return {
@@ -501,12 +562,11 @@ class OstiumAdapter:
                     tp_price,
                 )
         except Exception as exc:
-            raise OstiumServiceError(
-                code="UPDATE_TP_FAILED",
-                message="Failed to update take-profit on Ostium",
-                status_code=502,
-                retryable=True,
-                details={"error": str(exc)},
+            raise self._normalize_sdk_error(
+                operation="update_tp",
+                default_code="UPDATE_TP_FAILED",
+                default_message="Failed to update take-profit on Ostium",
+                exc=exc,
             ) from exc
 
         return {
