@@ -174,6 +174,31 @@ class OstiumAdapter:
             return format(value, "f")
         return str(value)
 
+    @classmethod
+    def _to_json_safe(cls, value: Any) -> Any:
+        if isinstance(value, Decimal):
+            return format(value, "f")
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        if isinstance(value, bytes):
+            return "0x" + value.hex()
+        if isinstance(value, bytearray):
+            return "0x" + bytes(value).hex()
+        if isinstance(value, dict):
+            return {str(key): cls._to_json_safe(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple, set)):
+            return [cls._to_json_safe(item) for item in value]
+        if hasattr(value, "hex"):
+            try:
+                hex_value = value.hex()
+            except Exception:
+                hex_value = None
+            if isinstance(hex_value, str):
+                return hex_value if hex_value.startswith("0x") else f"0x{hex_value}"
+        if hasattr(value, "__dict__"):
+            return cls._to_json_safe(vars(value))
+        return str(value)
+
     async def list_markets(self, network: str) -> dict[str, Any]:
         pairs = await self._fetch_pairs(network)
         markets: list[dict[str, Any]] = []
@@ -265,7 +290,7 @@ class OstiumAdapter:
         return {
             "network": network,
             "traderAddress": trader_address,
-            "positions": positions if isinstance(positions, list) else [],
+            "positions": self._to_json_safe(positions if isinstance(positions, list) else []),
         }
 
     async def open_position(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -334,7 +359,7 @@ class OstiumAdapter:
             "network": network,
             "pairId": pair_id,
             "status": "submitted",
-            "result": result,
+            "result": self._to_json_safe(result),
         }
         self._idempotency_set(payload.get("idempotencyKey"), response)
         return response
@@ -401,7 +426,7 @@ class OstiumAdapter:
             "pairId": pair_id,
             "tradeIndex": trade_index,
             "status": "submitted",
-            "result": result,
+            "result": self._to_json_safe(result),
         }
         self._idempotency_set(payload.get("idempotencyKey"), response)
         return response
@@ -446,7 +471,7 @@ class OstiumAdapter:
             "pairId": pair_id,
             "tradeIndex": trade_index,
             "slPrice": sl_price,
-            "result": result,
+            "result": self._to_json_safe(result),
         }
 
     async def update_tp(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -489,5 +514,5 @@ class OstiumAdapter:
             "pairId": pair_id,
             "tradeIndex": trade_index,
             "tpPrice": tp_price,
-            "result": result,
+            "result": self._to_json_safe(result),
         }

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
@@ -16,6 +18,8 @@ from app.schemas.ostium import (
 )
 from app.services.ostium_adapter import OstiumAdapter
 from app.services.ostium_adapter import OstiumServiceError
+
+LOGGER = logging.getLogger("ostium_service.routes.v1")
 
 
 
@@ -51,6 +55,17 @@ def build_v1_router(adapter: OstiumAdapter) -> APIRouter:
         ).model_dump()
         return JSONResponse(status_code=exc.status_code, content=payload)
 
+    def unexpected_error_response(request: Request, operation: str, exc: Exception) -> JSONResponse:
+        LOGGER.exception("Unhandled exception in %s", operation)
+        payload = _error(
+            request,
+            code="OSTIUM_INTERNAL_ERROR",
+            message=f"Unexpected failure while processing {operation}",
+            details={"error": str(exc), "type": type(exc).__name__, "operation": operation},
+            retryable=False,
+        ).model_dump()
+        return JSONResponse(status_code=500, content=payload)
+
     @router.post("/markets/list")
     async def markets_list(payload: MarketsListRequest, request: Request):
         try:
@@ -58,6 +73,8 @@ def build_v1_router(adapter: OstiumAdapter) -> APIRouter:
             return _success(request, data)
         except OstiumServiceError as exc:
             return error_response(request, exc)
+        except Exception as exc:
+            return unexpected_error_response(request, "markets/list", exc)
 
     @router.post("/prices/get")
     async def prices_get(payload: PriceRequest, request: Request):
@@ -66,6 +83,8 @@ def build_v1_router(adapter: OstiumAdapter) -> APIRouter:
             return _success(request, data)
         except OstiumServiceError as exc:
             return error_response(request, exc)
+        except Exception as exc:
+            return unexpected_error_response(request, "prices/get", exc)
 
     @router.post("/accounts/balance")
     async def accounts_balance(payload: BalanceRequest, request: Request):
@@ -74,6 +93,8 @@ def build_v1_router(adapter: OstiumAdapter) -> APIRouter:
             return _success(request, data)
         except OstiumServiceError as exc:
             return error_response(request, exc)
+        except Exception as exc:
+            return unexpected_error_response(request, "accounts/balance", exc)
 
     @router.post("/positions/list")
     async def positions_list(payload: PositionsListRequest, request: Request):
@@ -82,6 +103,8 @@ def build_v1_router(adapter: OstiumAdapter) -> APIRouter:
             return _success(request, data)
         except OstiumServiceError as exc:
             return error_response(request, exc)
+        except Exception as exc:
+            return unexpected_error_response(request, "positions/list", exc)
 
     @router.post("/positions/open")
     async def positions_open(payload: PositionOpenRequest, request: Request):
@@ -90,6 +113,8 @@ def build_v1_router(adapter: OstiumAdapter) -> APIRouter:
             return _success(request, data)
         except OstiumServiceError as exc:
             return error_response(request, exc)
+        except Exception as exc:
+            return unexpected_error_response(request, "positions/open", exc)
 
     @router.post("/positions/close")
     async def positions_close(payload: PositionCloseRequest, request: Request):
@@ -98,6 +123,8 @@ def build_v1_router(adapter: OstiumAdapter) -> APIRouter:
             return _success(request, data)
         except OstiumServiceError as exc:
             return error_response(request, exc)
+        except Exception as exc:
+            return unexpected_error_response(request, "positions/close", exc)
 
     @router.post("/positions/update-sl")
     async def positions_update_sl(payload: PositionUpdateSlRequest, request: Request):
@@ -106,6 +133,8 @@ def build_v1_router(adapter: OstiumAdapter) -> APIRouter:
             return _success(request, data)
         except OstiumServiceError as exc:
             return error_response(request, exc)
+        except Exception as exc:
+            return unexpected_error_response(request, "positions/update-sl", exc)
 
     @router.post("/positions/update-tp")
     async def positions_update_tp(payload: PositionUpdateTpRequest, request: Request):
@@ -114,5 +143,7 @@ def build_v1_router(adapter: OstiumAdapter) -> APIRouter:
             return _success(request, data)
         except OstiumServiceError as exc:
             return error_response(request, exc)
+        except Exception as exc:
+            return unexpected_error_response(request, "positions/update-tp", exc)
 
     return router
