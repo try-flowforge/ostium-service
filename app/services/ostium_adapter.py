@@ -401,6 +401,12 @@ class OstiumAdapter:
             "direction": side == "long",
             "leverage": float(payload["leverage"]),
         }
+        sl_price = payload.get("slPrice")
+        tp_price = payload.get("tpPrice")
+        if sl_price is not None:
+            trade_params["sl"] = float(sl_price)
+        if tp_price is not None:
+            trade_params["tp"] = float(tp_price)
         if trader_address:
             trade_params["trader_address"] = trader_address
 
@@ -421,6 +427,8 @@ class OstiumAdapter:
         response = {
             "network": network,
             "pairId": pair_id,
+            "slPrice": float(sl_price) if sl_price is not None else None,
+            "tpPrice": float(tp_price) if tp_price is not None else None,
             "status": "submitted",
             "result": self._to_json_safe(result),
         }

@@ -37,6 +37,8 @@ class PositionOpenRequest(NetworkedRequest):
     side: str
     collateral: float
     leverage: float
+    slPrice: float | None = None
+    tpPrice: float | None = None
     traderAddress: str | None = None
     idempotencyKey: str | None = None
 
@@ -51,6 +53,15 @@ class PositionOpenRequest(NetworkedRequest):
     @field_validator("collateral", "leverage")
     @classmethod
     def validate_positive(cls, value: float) -> float:
+        if value <= 0:
+            raise ValueError("value must be greater than 0")
+        return value
+
+    @field_validator("slPrice", "tpPrice")
+    @classmethod
+    def validate_optional_positive(cls, value: float | None) -> float | None:
+        if value is None:
+            return value
         if value <= 0:
             raise ValueError("value must be greater than 0")
         return value
