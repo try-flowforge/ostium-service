@@ -1,149 +1,17 @@
 from __future__ import annotations
-
-import logging
-
-from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
-
-from app.schemas.common import ErrorBody, ErrorEnvelope, Meta, SuccessEnvelope
-from app.schemas.ostium import (
-    BalanceRequest,
-    MarketsListRequest,
-    PositionCloseRequest,
-    PositionOpenRequest,
-    PositionsListRequest,
-    PositionUpdateSlRequest,
-    PositionUpdateTpRequest,
-    PriceRequest,
-)
+from fastapi import APIRouter
 from app.services.ostium_adapter import OstiumAdapter
-from app.services.ostium_adapter import OstiumServiceError
-
-LOGGER = logging.getLogger("ostium_service.routes.v1")
-
-
-
-def _meta(request: Request) -> Meta:
-    return Meta(requestId=getattr(request.state, "request_id", "unknown"))
-
-
-
-def _success(request: Request, data: dict) -> SuccessEnvelope:
-    return SuccessEnvelope(success=True, data=data, meta=_meta(request))
-
-
-
-def _error(request: Request, code: str, message: str, details: dict | None = None, retryable: bool | None = None) -> ErrorEnvelope:
-    return ErrorEnvelope(
-        success=False,
-        error=ErrorBody(code=code, message=message, details=details, retryable=retryable),
-        meta=_meta(request),
-    )
-
-
+from .trading import build_trading_router
+from .orders import build_orders_router
+from .market import build_market_router
+from .accounts import build_accounts_router
 
 def build_v1_router(adapter: OstiumAdapter) -> APIRouter:
     router = APIRouter(prefix="/v1")
-
-    def error_response(request: Request, exc: OstiumServiceError) -> JSONResponse:
-        payload = _error(
-            request,
-            code=exc.code,
-            message=exc.message,
-            details=exc.details,
-            retryable=exc.retryable,
-        ).model_dump()
-        return JSONResponse(status_code=exc.status_code, content=payload)
-
-    def unexpected_error_response(request: Request, operation: str, exc: Exception) -> JSONResponse:
-        LOGGER.exception("Unhandled exception in %s", operation)
-        payload = _error(
-            request,
-            code="OSTIUM_INTERNAL_ERROR",
-            message=f"Unexpected failure while processing {operation}",
-            details={"error": str(exc), "type": type(exc).__name__, "operation": operation},
-            retryable=False,
-        ).model_dump()
-        return JSONResponse(status_code=500, content=payload)
-
-    @router.post("/markets/list")
-    async def markets_list(payload: MarketsListRequest, request: Request):
-        try:
-            data = await adapter.list_markets(payload.network)
-            return _success(request, data)
-        except OstiumServiceError as exc:
-            return error_response(request, exc)
-        except Exception as exc:
-            return unexpected_error_response(request, "markets/list", exc)
-
-    @router.post("/prices/get")
-    async def prices_get(payload: PriceRequest, request: Request):
-        try:
-            data = await adapter.get_price(payload.network, payload.base, payload.quote)
-            return _success(request, data)
-        except OstiumServiceError as exc:
-            return error_response(request, exc)
-        except Exception as exc:
-            return unexpected_error_response(request, "prices/get", exc)
-
-    @router.post("/accounts/balance")
-    async def accounts_balance(payload: BalanceRequest, request: Request):
-        try:
-            data = await adapter.get_balance(payload.network, payload.address)
-            return _success(request, data)
-        except OstiumServiceError as exc:
-            return error_response(request, exc)
-        except Exception as exc:
-            return unexpected_error_response(request, "accounts/balance", exc)
-
-    @router.post("/positions/list")
-    async def positions_list(payload: PositionsListRequest, request: Request):
-        try:
-            data = await adapter.list_positions(payload.network, payload.traderAddress)
-            return _success(request, data)
-        except OstiumServiceError as exc:
-            return error_response(request, exc)
-        except Exception as exc:
-            return unexpected_error_response(request, "positions/list", exc)
-
-    @router.post("/positions/open")
-    async def positions_open(payload: PositionOpenRequest, request: Request):
-        try:
-            data = await adapter.open_position(payload.model_dump())
-            return _success(request, data)
-        except OstiumServiceError as exc:
-            return error_response(request, exc)
-        except Exception as exc:
-            return unexpected_error_response(request, "positions/open", exc)
-
-    @router.post("/positions/close")
-    async def positions_close(payload: PositionCloseRequest, request: Request):
-        try:
-            data = await adapter.close_position(payload.model_dump())
-            return _success(request, data)
-        except OstiumServiceError as exc:
-            return error_response(request, exc)
-        except Exception as exc:
-            return unexpected_error_response(request, "positions/close", exc)
-
-    @router.post("/positions/update-sl")
-    async def positions_update_sl(payload: PositionUpdateSlRequest, request: Request):
-        try:
-            data = await adapter.update_sl(payload.model_dump())
-            return _success(request, data)
-        except OstiumServiceError as exc:
-            return error_response(request, exc)
-        except Exception as exc:
-            return unexpected_error_response(request, "positions/update-sl", exc)
-
-    @router.post("/positions/update-tp")
-    async def positions_update_tp(payload: PositionUpdateTpRequest, request: Request):
-        try:
-            data = await adapter.update_tp(payload.model_dump())
-            return _success(request, data)
-        except OstiumServiceError as exc:
-            return error_response(request, exc)
-        except Exception as exc:
-            return unexpected_error_response(request, "positions/update-tp", exc)
-
+    
+    router.include_router(build_trading_router(adapter))
+    router.include_router(build_orders_router(adapter))
+    router.include_router(build_market_router(adapter))
+    router.include_router(build_accounts_router(adapter))
+    
     return router
