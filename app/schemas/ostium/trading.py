@@ -1,46 +1,27 @@
 from __future__ import annotations
-
-from pydantic import BaseModel, Field, field_validator
-
-
-class NetworkedRequest(BaseModel):
-    network: str = Field(description="testnet or mainnet")
-
-    @field_validator("network")
-    @classmethod
-    def validate_network(cls, value: str) -> str:
-        normalized = value.strip().lower()
-        if normalized not in {"testnet", "mainnet"}:
-            raise ValueError("network must be testnet or mainnet")
-        return normalized
-
-
-class MarketsListRequest(NetworkedRequest):
-    pass
-
-
-class PriceRequest(NetworkedRequest):
-    base: str
-    quote: str = "USD"
-
-
-class BalanceRequest(NetworkedRequest):
-    address: str
-
-
-class PositionsListRequest(NetworkedRequest):
-    traderAddress: str
-
+from pydantic import field_validator
+from .base import NetworkedRequest
 
 class PositionOpenRequest(NetworkedRequest):
     market: str
     side: str
     collateral: float
     leverage: float
+    orderType: str = "market"  # market, limit, stop
+    triggerPrice: float | None = None
+    slippage: float = 2.0
     slPrice: float | None = None
     tpPrice: float | None = None
     traderAddress: str | None = None
     idempotencyKey: str | None = None
+
+    @field_validator("orderType")
+    @classmethod
+    def validate_order_type(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"market", "limit", "stop"}:
+            raise ValueError("orderType must be market, limit, or stop")
+        return normalized
 
     @field_validator("side")
     @classmethod
@@ -66,13 +47,13 @@ class PositionOpenRequest(NetworkedRequest):
             raise ValueError("value must be greater than 0")
         return value
 
-
 class PositionCloseRequest(NetworkedRequest):
     pairId: int
     tradeIndex: int
+    closePercentage: float = 100.0
+    slippage: float = 2.0
     traderAddress: str | None = None
     idempotencyKey: str | None = None
-
 
 class PositionUpdateSlRequest(NetworkedRequest):
     pairId: int
@@ -80,9 +61,13 @@ class PositionUpdateSlRequest(NetworkedRequest):
     slPrice: float
     traderAddress: str | None = None
 
-
 class PositionUpdateTpRequest(NetworkedRequest):
     pairId: int
     tradeIndex: int
     tpPrice: float
+    traderAddress: str | None = None
+
+class PositionMetricsRequest(NetworkedRequest):
+    pairId: int
+    tradeIndex: int
     traderAddress: str | None = None
