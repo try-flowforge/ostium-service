@@ -1,7 +1,7 @@
 from __future__ import annotations
 import asyncio
 from typing import Any
-from .base import BaseManager, OstiumServiceError, LOGGER
+from .base import BaseManager, OstiumServiceError, LOGGER, Decimal
 
 class MarketManager(BaseManager):
     async def _fetch_pairs(self, network: str) -> list[dict[str, Any]]:
@@ -79,11 +79,11 @@ class MarketManager(BaseManager):
             
             result = await sdk.price.get_price(base.upper(), quote.upper())
             if isinstance(result, tuple):
-                price = float(result[0]) if len(result) > 0 and result[0] is not None else None
+                price = Decimal(str(result[0])) if len(result) > 0 and result[0] is not None else None
                 is_market_open = bool(result[1]) if len(result) > 1 else None
                 is_day_trading_closed = bool(result[2]) if len(result) > 2 else None
             else:
-                price = float(result) if result is not None else None
+                price = Decimal(str(result)) if result is not None else None
                 is_market_open = is_day_trading_closed = None
         except Exception as exc:
             raise OstiumServiceError(code="PRICE_FETCH_FAILED", message=f"Failed to fetch price for {base}/{quote}", status_code=502, retryable=True, details={"error": str(exc)}) from exc
@@ -94,7 +94,7 @@ class MarketManager(BaseManager):
         sdk = self._build_sdk(network)
         try:
             res = await sdk.get_funding_rate_for_pair_id(pair_id, period_hours=period_hours)
-            return {"network": network, "pairId": pair_id, "periodHours": period_hours, "accFundingLong": str(res[0]), "accFundingShort": str(res[1]), "fundingRatePercent": float(res[2]), "targetFundingRatePercent": float(res[3])}
+            return {"network": network, "pairId": pair_id, "periodHours": period_hours, "accFundingLong": str(res[0]), "accFundingShort": str(res[1]), "fundingRatePercent": Decimal(str(res[2])), "targetFundingRatePercent": Decimal(str(res[3]))}
         except Exception as exc:
             raise OstiumServiceError(code="FUNDING_FETCH_FAILED", message=f"Failed to fetch funding rate for pairId={pair_id}", status_code=502, retryable=True, details={"error": str(exc)}) from exc
 

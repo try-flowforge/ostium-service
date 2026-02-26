@@ -2,4 +2,5 @@ fastapi==0.116.1
 uvicorn[standard]==0.35.0
 pydantic==2.11.7
 httpx==0.28.1
-ostium-python-sdk==3.1.0
+--extra-index-url https://test.pypi.org/simple/
+ostium-python-sdk-test==3.0.1.4

@@ -1,7 +1,7 @@
 from __future__ import annotations
 import asyncio
 from typing import Any
-from .base import BaseManager, OstiumServiceError
+from .base import BaseManager, OstiumServiceError, Decimal
 from .market_manager import MarketManager
 
 class TradingManager(BaseManager):
@@ -42,14 +42,14 @@ class TradingManager(BaseManager):
             if trigger_price is None: raise OstiumServiceError(code="TRIGGER_PRICE_REQUIRED", message=f"triggerPrice is required", status_code=400)
             at_price = trigger_price
 
-        trade_params = {"asset_type": pair_id, "collateral": float(payload["collateral"]), "direction": side == "long", "leverage": float(payload["leverage"]), "order_type": order_type}
-        if payload.get("slPrice") is not None: trade_params["sl"] = float(payload["slPrice"])
-        if payload.get("tpPrice") is not None: trade_params["tp"] = float(payload["tpPrice"])
+        trade_params = {"asset_type": pair_id, "collateral": Decimal(str(payload["collateral"])), "direction": side == "long", "leverage": Decimal(str(payload["leverage"])), "order_type": order_type}
+        if payload.get("slPrice") is not None: trade_params["sl"] = Decimal(str(payload["slPrice"]))
+        if payload.get("tpPrice") is not None: trade_params["tp"] = Decimal(str(payload["tpPrice"]))
         if trader_address: trade_params["trader_address"] = trader_address
 
         try:
-            if hasattr(sdk.ostium, "set_slippage_percentage"): sdk.ostium.set_slippage_percentage(slippage)
-            result = await asyncio.to_thread(sdk.ostium.perform_trade, trade_params, float(at_price))
+            if hasattr(sdk.ostium, "set_slippage_percentage"): sdk.ostium.set_slippage_percentage(Decimal(str(slippage)))
+            result = await asyncio.to_thread(sdk.ostium.perform_trade, trade_params, Decimal(str(at_price)))
         except Exception as exc:
             raise self._normalize_sdk_error("open_position", "OPEN_POSITION_FAILED", "Failed to open position", exc) from exc
 
@@ -77,8 +77,8 @@ class TradingManager(BaseManager):
         if market_price is None: raise OstiumServiceError(code="PRICE_FETCH_FAILED", message="Could not determine price", status_code=502)
 
         try:
-            if hasattr(sdk.ostium, "set_slippage_percentage"): sdk.ostium.set_slippage_percentage(slippage)
-            result = await asyncio.to_thread(sdk.ostium.close_trade, pair_id=pair_id, trade_index=trade_index, market_price=float(market_price), close_percentage=close_percentage, trader_address=trader_address)
+            if hasattr(sdk.ostium, "set_slippage_percentage"): sdk.ostium.set_slippage_percentage(Decimal(str(slippage)))
+            result = await asyncio.to_thread(sdk.ostium.close_trade, pair_id=pair_id, trade_index=trade_index, market_price=Decimal(str(market_price)), close_percentage=Decimal(str(close_percentage)), trader_address=trader_address)
         except Exception as exc:
             raise self._normalize_sdk_error("close_position", "CLOSE_POSITION_FAILED", "Failed to close position", exc) from exc
 
@@ -91,7 +91,7 @@ class TradingManager(BaseManager):
         trader_address = payload.get("traderAddress")
         sdk = self._build_sdk(network, private_key=self._ensure_delegate_key())
         try:
-            result = await asyncio.to_thread(sdk.ostium.update_sl, pair_id=pair_id, trade_index=trade_index, sl_price=sl_price, trader_address=trader_address)
+            result = await asyncio.to_thread(sdk.ostium.update_sl, pair_id=pair_id, trade_index=trade_index, sl_price=Decimal(str(sl_price)), trader_address=trader_address)
         except Exception as exc:
             raise self._normalize_sdk_error("update_sl", "UPDATE_SL_FAILED", "Failed to update SL", exc) from exc
         return {"network": network, "pairId": pair_id, "tradeIndex": trade_index, "slPrice": sl_price, "status": "submitted", "result": self._to_json_safe(result)}
@@ -101,7 +101,7 @@ class TradingManager(BaseManager):
         trader_address = payload.get("traderAddress")
         sdk = self._build_sdk(network, private_key=self._ensure_delegate_key())
         try:
-            result = await asyncio.to_thread(sdk.ostium.update_tp, pair_id=pair_id, trade_index=trade_index, tp_price=tp_price, trader_address=trader_address)
+            result = await asyncio.to_thread(sdk.ostium.update_tp, pair_id=pair_id, trade_index=trade_index, tp_price=Decimal(str(tp_price)), trader_address=trader_address)
         except Exception as exc:
             raise self._normalize_sdk_error("update_tp", "UPDATE_TP_FAILED", "Failed to update TP", exc) from exc
         return {"network": network, "pairId": pair_id, "tradeIndex": trade_index, "tpPrice": tp_price, "status": "submitted", "result": self._to_json_safe(result)}

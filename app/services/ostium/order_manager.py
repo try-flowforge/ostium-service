@@ -1,7 +1,7 @@
 from __future__ import annotations
 import asyncio
 from typing import Any
-from .base import BaseManager, OstiumServiceError
+from .base import BaseManager, OstiumServiceError, Decimal
 
 class OrderManager(BaseManager):
     async def list_orders(self, network: str, trader_address: str) -> dict[str, Any]:
@@ -31,7 +31,7 @@ class OrderManager(BaseManager):
         delegate_key = self._ensure_delegate_key()
         sdk = self._build_sdk(network, private_key=delegate_key)
         try:
-            result = await asyncio.to_thread(sdk.ostium.update_limit_order, pair_id=pair_id, index=trade_index, pvt_key=delegate_key, price=float(price) if price else None, tp=float(tp) if tp else None, sl=float(sl) if sl else None)
+            result = await asyncio.to_thread(sdk.ostium.update_limit_order, pair_id=pair_id, index=trade_index, pvt_key=delegate_key, price=Decimal(str(price)) if price else None, tp=Decimal(str(tp)) if tp else None, sl=Decimal(str(sl)) if sl else None)
         except Exception as exc:
             raise self._normalize_sdk_error("update_order", "UPDATE_ORDER_FAILED", "Failed to update order", exc) from exc
         return {"network": network, "pairId": pair_id, "tradeIndex": trade_index, "status": "submitted", "result": self._to_json_safe(result)}
