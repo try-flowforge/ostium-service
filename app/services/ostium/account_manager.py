@@ -37,7 +37,14 @@ class AccountManager(BaseManager):
         try:
             method = getattr(sdk.faucet, "get_tokens", getattr(sdk.faucet, "request_tokens", None))
             if not method: result = "Manual request required"
-            else: result = await asyncio.to_thread(method, target)
+            else:
+                try:
+                    result = await asyncio.to_thread(method, target)
+                except TypeError as e:
+                    if "argument" in str(e):
+                        result = await asyncio.to_thread(method)
+                    else:
+                        raise
             return {"network": network, "address": target, "status": "submitted", "result": self._to_json_safe(result)}
         except Exception as exc:
             raise self._normalize_sdk_error("request_faucet", "FAUCET_REQUEST_FAILED", "Failed to request faucet", exc) from exc
